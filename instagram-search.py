@@ -11,11 +11,14 @@ import json
 import re
 from bs4 import BeautifulSoup
 
+# Post Model
 class InstagramPost:
-	def __init__(self, caption, likes, user_id):
+	def __init__(self, caption, likes, user_id, at_signs, pic_url):
 		self.caption = caption
 		self.likes = likes
 		self.user_id = user_id
+		self.at_signs = at_signs
+		self.pic_url = pic_url
 
 	def get_caption(self):
 		return self.caption
@@ -26,10 +29,29 @@ class InstagramPost:
 	def get_user_id(self):
 		return self.user_id
 
-	# Returns list of associated hashtags with caption
-	def parse_hashtags(self):
+	def get_at_signs(self):
+		return self.at_signs
+
+	def get_pic_url(self):
+		return self.pic_url
+
+class InstagramPostParser:
+	def __init__(self):
+		# Matches anything after an at sign '@'
+		# @		anything that begins with @
+		# \w 	matches any unicode character at least one time
+		self.at_compiler = re.compile('@[\w.]+')
+
+	# Returns list of associated hashtags '#' in a string
+	# Can't have spaces or special characters
+	def parse_hashtags(self, caption):
 		return
 
+	# Returns list of associated at sign '@' in a string
+	def parse_at_signs(self, string):
+		results = []
+		results = self.at_compiler.findall(string)
+		return results
 
 class InstagramExploreSearch:
 	'''
@@ -38,6 +60,7 @@ class InstagramExploreSearch:
 	
 	def __init__(self, hashtag):
 		self.hashtag = hashtag
+		self.parser = InstagramPostParser()
 
 	# Returns list of Instagram posts given hashtag search params
 	def extract_posts(self):
@@ -58,27 +81,66 @@ class InstagramExploreSearch:
 				json_data = json.loads(json_data)
 				break
 
+		#print json.dumps(json_data, indent=4)
+
+		# Check if next page is available
 		media = json_data['entry_data']['TagPage'][0]['tag']['media']
-		posts = []
+		if (media['page_info']['has_next_page'] == True):
+			pass
 
-		# Iterate and collect recent posts
-		for node in media['nodes']:
-			user_id = int(node['owner']['id'])
-			likes = int(node['likes']['count'])
-			caption = node['caption']
-			post = InstagramPost(caption, likes, user_id)
-			posts.append(post)
-			# Optimize: add nodes such that they are in order, else sort
-
-			# print json.dumps(node, indent=4)
-
-		# print(posts[0].get_caption())
-		print url_search
+		# Determine what posts to return
+		posts = self.get_top_posts(json_data)
 		return posts
 
 
 	def save_results(self, post_results):
 		pass
+
+	def node_to_post(self, node):
+		user_id = int(node['owner']['id'])
+		likes = int(node['likes']['count'])
+
+		# If no caption present, then caption is an empty string
+		if 'caption' in node:
+			caption = node['caption']
+			at_signs = self.parser.parse_at_signs(caption)
+		else:
+			caption = ""
+			at_signs = ""
+
+		pic_url = node['display_src']
+
+		post = InstagramPost(caption, likes, user_id, at_signs, pic_url)
+		
+		return post
+
+	# Collect top posts
+	def get_top_posts(self, json_data):
+		top_posts = json_data['entry_data']['TagPage'][0]['tag']['top_posts']
+		posts = []
+
+		# Iterate adn collect top posts
+		for node in top_posts['nodes']:
+			post = self.node_to_post(node)
+			posts.append(post)
+
+		return posts
+
+	# Collect recent posts
+	def get_recent_posts(self, json_data):
+		media = json_data['entry_data']['TagPage'][0]['tag']['media']
+		posts = []
+
+		for node in media['nodes']:
+			post = self.node_to_post(node)
+			posts.append(post)
+			# Optimize: add nodes such that they are in order, else sort
+
+			# print json.dumps(node, indent=4)
+
+		return posts
+
+
 
 if __name__ == '__main__':
 	search_results = InstagramExploreSearch('foodnyc').extract_posts()
@@ -92,6 +154,9 @@ if __name__ == '__main__':
 			top_post = post
 
 	print("Caption: " + top_post.get_caption() + "\nLikes: " + str(top_post.get_likes()))
-
+	print("At signs: ")
+	for sign in top_post.get_at_signs():
+		print(sign + ', ')
+	print("Picture url: " + top_post.get_pic_url())
 
 
