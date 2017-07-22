@@ -10,19 +10,10 @@
 
 <p> Scraping Instagram.com to bring the latest foodie trends. </p>
 <!-- Maybe have an option for them to input their own food hashtag-->
-<button type="button" id="loadPost" onclick="loadPost()">Let's Eat</button>
+<button type="button" onclick="loadPost()">Let's Eat</button>
 <!-- Script to load image on button click -->
 <script type="text/javascript">
-// '$' is the jquery object
-$('#').click(function() {
-	$ajax({
-		type:'get',
-
-	})
-})
-
-
-	function ajaxHolder() {
+	function loadPost() {
 		var xhttp = new XMLHttpRequest();
 		// defines function to be called when readyState property changes
 		xhttp.onreadystatechange = function() {

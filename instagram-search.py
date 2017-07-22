@@ -35,6 +35,17 @@ class InstagramPost:
 	def get_pic_url(self):
 		return self.pic_url
 
+	def get_dict(self):
+		return {
+			'post': {
+				'caption': self.caption,
+				'likes': self.likes,
+				'user_id': self.user_id,
+				'at_signs': self.at_signs,
+				'pic_url': self.pic_url
+			}
+		}
+
 class InstagramPostParser:
 	def __init__(self):
 		# Matches anything after an at sign '@'
@@ -66,6 +77,7 @@ class InstagramExploreSearch:
 		self.hashtag = hashtag
 		self.parser = InstagramPostParser()
 		self.root_url = 'https://www.instagram.com'
+		self.posts = []
 
 	# Returns list of Instagram posts given hashtag search params
 	def extract_posts(self):
@@ -90,7 +102,6 @@ class InstagramExploreSearch:
 
 		#print json.dumps(json_data, indent=4)
 
-		posts = []
 		# Check if next page is available
 		media = json_data['entry_data']['TagPage'][0]['tag']['media']
 		if (media['page_info']['has_next_page'] == True):
@@ -135,13 +146,13 @@ class InstagramExploreSearch:
 
 				# Collect posts after 'Load More' button
 				for node in data['data']['hashtag']['edge_hashtag_to_media']['edges']:
-					posts.append(self.extract_receent_query_post(node['node']))
-				self.save_posts(posts)
+					self.posts.append(self.extract_receent_query_post(node['node']))
+				self.save_posts(self.posts)
 
 
 		# Determine what posts to return
-		posts = self.get_top_posts(json_data)
-		return posts
+		self.posts = self.get_top_posts(json_data)
+		return self.posts
 
 
 	# Saves posts
@@ -187,28 +198,28 @@ class InstagramExploreSearch:
 	# Collect top posts
 	def get_top_posts(self, json_data):
 		top_posts = json_data['entry_data']['TagPage'][0]['tag']['top_posts']
-		posts = []
 
+		self.posts = []
 		# Iterate and collect top posts
 		for node in top_posts['nodes']:
 			post = self.extract_recent_post(node)
-			posts.append(post)
+			self.posts.append(post)
 
-		return posts
+		return self.posts
 
 	# Collect recent posts
 	def get_recent_posts(self, json_data):
 		media = json_data['entry_data']['TagPage'][0]['tag']['media']
-		posts = []
+		self.posts = []
 
 		for node in media['nodes']:
-			post = self.extract_recent_post(node)
-			posts.append(post)
+			self.post = self.extract_recent_post(node)
+			self.posts.append(post)
 			# Optimize: add nodes such that they are in order, else sort
 
 			# print json.dumps(node, indent=4)
 
-		return posts
+		return self.posts
 
 
 	# Collect query ids from JS when load page button is clicked
@@ -233,6 +244,11 @@ class InstagramExploreSearch:
 					query_ids.append(query_id)
 		return query_ids
 
+	# Return instagram post as a JSON object
+	def post_to_json(self, post):
+		return post.get_dict()
+	
+
 
 
 if __name__ == '__main__':
@@ -251,5 +267,8 @@ if __name__ == '__main__':
 	for sign in top_post.get_at_signs():
 		print(sign + ', ')
 	print("Picture url: " + top_post.get_pic_url())
+
+	# get data of top post in dict format
+	return top_post.get_dict()
 
 
