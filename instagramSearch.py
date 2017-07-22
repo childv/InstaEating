@@ -104,6 +104,7 @@ class InstagramExploreSearch:
 
 		# Check if next page is available
 		media = json_data['entry_data']['TagPage'][0]['tag']['media']
+		'''
 		if (media['page_info']['has_next_page'] == True):
 			# Figure out valid queryID
 			# Inspired by https://github.com/tomkdickinson/Instagram-Search-API-Python/blob/master/instagram_search.py
@@ -128,7 +129,7 @@ class InstagramExploreSearch:
 					success = True
 					break
 
-				except JSONDecodeError as de:
+				except ValueError as ve:
 					# no valid JSON returned, continue in loop
 					pass
 
@@ -148,6 +149,7 @@ class InstagramExploreSearch:
 				for node in data['data']['hashtag']['edge_hashtag_to_media']['edges']:
 					self.posts.append(self.extract_receent_query_post(node['node']))
 				self.save_posts(self.posts)
+		'''
 
 
 		# Determine what posts to return
@@ -249,9 +251,7 @@ class InstagramExploreSearch:
 		return post.get_dict()
 	
 
-
-
-if __name__ == '__main__':
+def main():
 	search_results = InstagramExploreSearch('foodnyc').extract_posts()
 	
 	most_likes = 0
@@ -269,6 +269,11 @@ if __name__ == '__main__':
 	print("Picture url: " + top_post.get_pic_url())
 
 	# get data of top post in dict format
-	return top_post.get_dict()
+	top_post.get_dict()
+
+
+if __name__ == '__main__':
+	main()
+
 
 

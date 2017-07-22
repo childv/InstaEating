@@ -12,27 +12,6 @@
 <!-- Maybe have an option for them to input their own food hashtag-->
 <button type="button" onclick="loadPost()">Let's Eat</button>
 <!-- Script to load image on button click -->
-<script type="text/javascript">
-	function loadPost() {
-		var xhttp = new XMLHttpRequest();
-		// defines function to be called when readyState property changes
-		xhttp.onreadystatechange = function() {
-			// readyState == 4: request finished and response ready
-			// status == 200: OK
-			if (this.readyState == 4 &&
-				this.status == 200) {
-				// select approprite id to show post in
-				// responseText: returns response data as text
-				document.getElementById("displayPost").innerHTML = this.responseText;
-			}
-		};
-		// specify type of request, server/file location, and if asynch (true) or synch (false). Always use true if possible
-		xhttp.open("GET", "ajax_info.txt", true);
-		// send GET request to server
-		// 
-		xhttp.send();
-	}
-</script>
 
 <div id="displayPost"> </div>
 </body>

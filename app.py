@@ -6,11 +6,12 @@ app = Flask(__name__)
 
 import instagramSearch
 
-top_post = instagram-search
+top_post = instagramSearch.main()
 
 @app.route('/')
 def main():
-	return render_template('/template/index.html')
+	# return 'Hello world!'
+	return render_template('index.html')
 
 if __name__ == '__main__':
-	app.run()
+	app.run(debug=True)
