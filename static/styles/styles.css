@@ -1,0 +1,18 @@
+/*
+Stylesheet for InstaEating app
+Veronica Child, July 2017
+*/
+
+#btnloadPost {
+	padding:10px 40px;
+	border-radius:25px;
+	background-color:white;
+	color: #008CBA; /* Blue */
+	border:2px solid #008CBA; /* Blue */
+	font-size: 15px;
+}
+
+#btnloadPost:hover {
+	background-color: #008CBA;
+	color:white;
+}

@@ -13,11 +13,12 @@ from bs4 import BeautifulSoup
 
 # Post Model
 class InstagramPost:
-	def __init__(self, caption, likes, user_id, at_signs, pic_url):
+	def __init__(self, caption, likes, user_id, pic_url):
 		self.caption = caption
 		self.likes = likes
 		self.user_id = user_id
-		self.at_signs = at_signs
+		self.at_signs = self.parse_at_signs(caption)
+		self.hashtags = self.parse_hashtags(caption)
 		self.pic_url = pic_url
 
 	def get_caption(self):
@@ -35,6 +36,27 @@ class InstagramPost:
 	def get_pic_url(self):
 		return self.pic_url
 
+	# Returns list of associated at sign '@' in a string
+	def parse_at_signs(self, string):
+		results = []
+		# Matches anything after an at sign '@'
+		# @		anything that begins with @
+		# \w 	matches any unicode character at least one time
+		at_compiler = re.compile('@[\w.]+')
+		results = at_compiler.findall(string)
+		return results
+
+	# Returns list of associated hashtags '#' in a string
+	# Can't have spaces or special characters
+	def parse_hashtags(self, string):
+		results = []
+		# Matches anything after a hashtag '#'
+		# '#'	anything that begins with #
+		# \w 	matches any unicode character at least one tim
+		hashtag_compiler = re.compile('#[\w.]+')
+		results = hashtag_compiler.findall(string)
+		return results
+
 	def get_dict(self):
 		return {
 			'post': {
@@ -46,28 +68,6 @@ class InstagramPost:
 			}
 		}
 
-class InstagramPostParser:
-	def __init__(self):
-		# Matches anything after an at sign '@'
-		# @		anything that begins with @
-		# \w 	matches any unicode character at least one time
-		self.at_compiler = re.compile('@[\w.]+')
-		# Matches anything after a hashtag '#'
-		self.hashtag_compiler = re.compile('#[\w.]+')
-
-	# Returns list of associated hashtags '#' in a string
-	# Can't have spaces or special characters
-	def parse_hashtags(self, caption):
-		results = []
-		results = self.hashtag_compiler.finall(string)
-		return results
-
-	# Returns list of associated at sign '@' in a string
-	def parse_at_signs(self, string):
-		results = []
-		results = self.at_compiler.findall(string)
-		return results
-
 class InstagramExploreSearch:
 	'''
 	Class that mines the instagram explore page with a given hashtag.
@@ -75,9 +75,8 @@ class InstagramExploreSearch:
 	
 	def __init__(self, hashtag):
 		self.hashtag = hashtag
-		self.parser = InstagramPostParser()
 		self.root_url = 'https://www.instagram.com'
-		self.posts = []
+		self.all_posts = []
 
 	# Returns list of Instagram posts given hashtag search params
 	def extract_posts(self):
@@ -101,10 +100,10 @@ class InstagramExploreSearch:
 				break
 
 		#print json.dumps(json_data, indent=4)
+		posts = []
 
 		# Check if next page is available
 		media = json_data['entry_data']['TagPage'][0]['tag']['media']
-		'''
 		if (media['page_info']['has_next_page'] == True):
 			# Figure out valid queryID
 			# Inspired by https://github.com/tomkdickinson/Instagram-Search-API-Python/blob/master/instagram_search.py
@@ -121,7 +120,7 @@ class InstagramExploreSearch:
 				
 				# Chekf if query id is valid
 				try:
-					query_data = requests.get(url).json()
+					query_data = requests.get(query_url).json()
 					if 'hashtag' not in query_data['data']:
 						# Empty response?
 						continue
@@ -138,29 +137,38 @@ class InstagramExploreSearch:
 				log.error("Extracted query ids were not valid")
 				sys.exit(1)
 			
+			i = 0
 			while end_cursor is not None:
 				# URL build based on confirmed query id of a post
 				query_url = self.root_url + "/graphql/query/?query_id=%s&tag_name=%s&first=10&after=%s" % (
 					query_id, self.hashtag, end_cursor)
-				query_data = json.loads(requests.get(url).text)
-				end_cursor = data['data']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
+				query_data = json.loads(requests.get(query_url).text)
+				end_cursor = query_data['data']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
 
 				# Collect posts after 'Load More' button
-				for node in data['data']['hashtag']['edge_hashtag_to_media']['edges']:
-					self.posts.append(self.extract_receent_query_post(node['node']))
-				self.save_posts(self.posts)
-		'''
+				for node in query_data['data']['hashtag']['edge_hashtag_to_media']['edges']:
+					posts.append(self.extract_recent_query_post(node['node']))
+					
+					# Loop cut off
+					print("Loop: " + str(i))
+					i += 1
+					if (i == 500):
+						return posts
+					
+				self.save_posts(posts)
+		
 
 
 		# Determine what posts to return
-		self.posts = self.get_top_posts(json_data)
-		return self.posts
+		#posts = self.get_recent_posts(json_data)
+		return posts
 
 
 	# Saves posts
 	def save_posts(self, post_results):
 		pass
 
+	# Colelct recent posts from initial root explore page
 	def extract_recent_post(self, node):
 		user_id = int(node['owner']['id'])
 		likes = int(node['likes']['count'])
@@ -168,60 +176,58 @@ class InstagramExploreSearch:
 		# If no caption present, then caption is an empty string
 		if 'caption' in node:
 			caption = node['caption']
-			at_signs = self.parser.parse_at_signs(caption)
 		else:
 			caption = ""
-			at_signs = ""
 
 		pic_url = node['display_src']
 
-		post = InstagramPost(caption, likes, user_id, at_signs, pic_url)
+		post = InstagramPost(caption, likes, user_id, pic_url)
 		
 		return post
 
+	# Collect recent posts beyond 'Load More' query button
 	def extract_recent_query_post(self, node):
+		# print(json.dumps(node, indent=4))
+		
 		user_id = int(node['id'])
-		likes = int(node['likes']['count'])
-
-		# If no caption present, then caption is an empty string
-		if 'caption' in node:
-			caption = node['edge_media_to_caption']['edges'][0]['node']['text']
-			at_signs = self.parser.parse_at_signs(caption)
-		else:
-			caption = ""
-			at_signs = ""
-
+		likes = int(node['edge_liked_by']['count'])
 		pic_url = node['display_url']
 
-		post = InstagramPost(caption, likes, user_id, at_signs, pic_url)
-		
+		# If no caption present, then caption is an empty string
+		caption = ""
+		if 'edge_media_to_caption' in node:
+			# !! COULD BE MORE CAPTION??
+			for section in node['edge_media_to_caption']['edges']:
+				caption += section['node']['text']
+			#caption = node['edge_media_to_caption']['edges'][0]['node']['text']
+
+		post = InstagramPost(caption, likes, user_id, pic_url)
 		return post
 
 	# Collect top posts
 	def get_top_posts(self, json_data):
 		top_posts = json_data['entry_data']['TagPage'][0]['tag']['top_posts']
 
-		self.posts = []
+		posts = []
 		# Iterate and collect top posts
 		for node in top_posts['nodes']:
 			post = self.extract_recent_post(node)
-			self.posts.append(post)
+			posts.append(post)
 
-		return self.posts
+		return posts
 
 	# Collect recent posts
 	def get_recent_posts(self, json_data):
 		media = json_data['entry_data']['TagPage'][0]['tag']['media']
-		self.posts = []
+		posts = []
 
 		for node in media['nodes']:
-			self.post = self.extract_recent_post(node)
-			self.posts.append(post)
+			post = self.extract_recent_post(node)
+			posts.append(post)
 			# Optimize: add nodes such that they are in order, else sort
 
 			# print json.dumps(node, indent=4)
-
-		return self.posts
+		return posts
 
 
 	# Collect query ids from JS when load page button is clicked

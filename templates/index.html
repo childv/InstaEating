@@ -1,25 +1,35 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-US">
 <head>
-<title>InstaEater</title>
+<meta charset="UTF-8"
+<title style="display:none;">InstaEater</title>
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='styles/styles.css') }}"/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 </head>
 
 <body>
+	<h1>InstaEating</h1>
 
-<h1>InstaEating</h1>
+	<p> Scraping Instagram.com to bring the latest foodie trends. </p>
+	<!-- Maybe have an option for them to input their own food hashtag-->
 
-<p> Scraping Instagram.com to bring the latest foodie trends. </p>
-<!-- Maybe have an option for them to input their own food hashtag-->
-<button type="button" onclick="loadPost()">Let's Eat</button>
-<!-- Script to load image on button click -->
-<script>
-	function loadPost() {
-		document.getElementById('displayPost').style.display = 'block';
-	}
+	<button id="btnloadPost" type="button" onclick="loadPost()">Let's Eat</button>
 
-</script>
+	<div id="displayPost" style="display:none;padding-top:10px;">
+		<image style="width:400px;height:auto;" src='{{ image_url }}' alt="Post Image">
+		<h3 id="at_signs"></h3>
+		<p>{{ caption }}</p>
+		<p> Likes: {{ likes }} </p>
+	</div>
 
-<div id="displayPost" style="display:none;"> <image style="width:600px;height:auto;" src="{{ image_url }}" alt="Post Image"> </div>
 </body>
+
+<script type="text/javascript">
+	// converts dictionary to json for external script to use
+	// Is this the best practice??
+	var json_data = {{ result|tojson }};
+	console.log(json_data.post);
+</script>
+<script type="text/javascript" src="{{ url_for('static', filename='app.js')}}"></script>
 
 </html>
