@@ -12,8 +12,14 @@
 <!-- Maybe have an option for them to input their own food hashtag-->
 <button type="button" onclick="loadPost()">Let's Eat</button>
 <!-- Script to load image on button click -->
+<script>
+	function loadPost() {
+		document.getElementById('displayPost').style.display = 'block';
+	}
 
-<div id="displayPost"> </div>
+</script>
+
+<div id="displayPost" style="display:none;"> <image style="width:600px;height:auto;" src="{{ image_url }}" alt="Post Image"> </div>
 </body>
 
 </html>

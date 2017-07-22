@@ -250,7 +250,7 @@ class InstagramExploreSearch:
 	def post_to_json(self, post):
 		return post.get_dict()
 	
-
+# Runs search with given hashtag. Returns top post in form of a dictionary
 def main():
 	search_results = InstagramExploreSearch('foodnyc').extract_posts()
 	
@@ -269,7 +269,7 @@ def main():
 	print("Picture url: " + top_post.get_pic_url())
 
 	# get data of top post in dict format
-	top_post.get_dict()
+	return top_post.get_dict()
 
 
 if __name__ == '__main__':
