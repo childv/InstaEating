@@ -18,9 +18,9 @@ def main():
 
 	# return 'Hello world!'
 	return render_template('index.html',
-		image_url=top_post['post']['pic_url'],
-		caption=top_post['post']['caption'],
-		likes=top_post['post']['likes'],
+		image_url=top_post['pic_url'],
+		caption=top_post['caption'],
+		likes=top_post['likes'],
 		result=top_post)
 
 if __name__ == '__main__':

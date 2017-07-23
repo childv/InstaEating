@@ -6,10 +6,12 @@
 # Code that scrapes Instagram's explore page to get the latest posts regarding food
 # Inspired by Tom Dickinson's tutorial, http://tomkdickinson.co.uk/2016/12/extracting-instagram-data-part-1/
 
+import sys
 import requests
 import json
 import re
 from bs4 import BeautifulSoup
+from pymongo import MongoClient
 
 # Post Model
 class InstagramPost:
@@ -37,6 +39,7 @@ class InstagramPost:
 		return self.pic_url
 
 	# Returns list of associated at sign '@' in a string
+	# OPTIMIZE: remove double mentions
 	def parse_at_signs(self, string):
 		results = []
 		# Matches anything after an at sign '@'
@@ -57,15 +60,13 @@ class InstagramPost:
 		results = hashtag_compiler.findall(string)
 		return results
 
-	def get_dict(self):
+	def to_dict(self):
 		return {
-			'post': {
-				'caption': self.caption,
-				'likes': self.likes,
-				'user_id': self.user_id,
-				'at_signs': self.at_signs,
-				'pic_url': self.pic_url
-			}
+			'caption': self.caption,
+			'likes': self.likes,
+			'user_id': self.user_id,
+			'at_signs': self.at_signs,
+			'pic_url': self.pic_url
 		}
 
 class InstagramExploreSearch:
@@ -149,43 +150,85 @@ class InstagramExploreSearch:
 				for node in query_data['data']['hashtag']['edge_hashtag_to_media']['edges']:
 					posts.append(self.extract_recent_query_post(node['node']))
 					
-					# Loop cut off
+					# Hard-coded loop cut off
 					print("Loop: " + str(i))
 					i += 1
-					if (i == 500):
-						return posts
+					if (i > 10):
+						end_cursor = None
+						#return posts
 					
-				self.save_posts(posts)
-		
+				insert_object = self.save_posts(posts)
 
+				self.get_posts(insert_object)
 
 		# Determine what posts to return
 		#posts = self.get_recent_posts(json_data)
-		return posts
+		return []
 
+	def get_posts(self, insert_object):
+		# Connet to database
+		client = MongoClient()
+		db = client['posts']
 
-	# Saves posts
-	def save_posts(self, post_results):
-		pass
+		# Return all documents in latst_posts collection
+		cursor = db.latest_posts.find()
+		# Return documents with likes greater than 100
+		#cursor = db.latest_posts.find({"likes": {"$gt": 100}})
+		# Return document with specific _id
+		#cursor = db.latest_posts.find_one({"_id" : insert_object.inserted_id})
 
-	# Colelct recent posts from initial root explore page
+		# iterate cursor and print matching docs
+		i = 0
+		for document in cursor:
+			print("Doc number: " + str(i))
+			# get hex encoded version of ObjectId
+			print("Doc id: " + str(document['_id']))
+			#print(document)
+			i += 1
+
+		if (i == 0):
+			print("No documents retrieved")
+
+	# Saves posts using MongoDB
+	# param: posts	list of InstagramPosts
+	def save_posts(self, posts):
+		# create a connection - if unspecififed, runs on localhost port 27017
+		client = MongoClient();
+		# access database named posts
+		db = client['posts']
+
+		# convert list of posts into a dictionary format
+		post_list = []
+		for post in posts:
+			post_list.append(post.to_dict())
+		posts_dict = {'posts': post_list}
+
+		# insert a document into collection named latest_posts
+		# result is an InsertOneResult object
+		insert_object = db.latest_posts.insert_one(posts_dict)
+		# get unique id to insert object
+		# WHAT IS THE DIFFERENCE BETWEEN INSERONERESULT AND DOC _ID??
+		print("Unique id:")
+		print(insert_object.inserted_id)
+		return insert_object
+
+	# Collect recent posts from initial root explore page
+	# param: node 	JSON umbrella key for recent post data
 	def extract_recent_post(self, node):
 		user_id = int(node['owner']['id'])
 		likes = int(node['likes']['count'])
-
+		pic_url = node['display_src']
 		# If no caption present, then caption is an empty string
 		if 'caption' in node:
 			caption = node['caption']
 		else:
 			caption = ""
-
-		pic_url = node['display_src']
-
 		post = InstagramPost(caption, likes, user_id, pic_url)
 		
 		return post
 
 	# Collect recent posts beyond 'Load More' query button
+	# param: node 	JSON umbrella key for queried recent post data
 	def extract_recent_query_post(self, node):
 		# print(json.dumps(node, indent=4))
 		
@@ -252,14 +295,16 @@ class InstagramExploreSearch:
 					query_ids.append(query_id)
 		return query_ids
 
-	# Return instagram post as a JSON object
-	def post_to_json(self, post):
-		return post.get_dict()
-	
+
 # Runs search with given hashtag. Returns top post in form of a dictionary
 def main():
 	search_results = InstagramExploreSearch('foodnyc').extract_posts()
-	
+
+	# Exit if no posts - would result in AttributeError otherwise
+	if (len(search_results) == 0):
+		print("No posts found. Exiting...")
+		sys.exit()
+
 	most_likes = 0
 	top_post = None
 
@@ -275,7 +320,8 @@ def main():
 	print("Picture url: " + top_post.get_pic_url())
 
 	# get data of top post in dict format
-	return top_post.get_dict()
+	return top_post.to_dict()
+
 
 
 if __name__ == '__main__':
