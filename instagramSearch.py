@@ -211,14 +211,15 @@ class InstagramExploreSearch:
 			i = 0
 
 			# write to local csv
+			# with open('data/raw.csv', 'wb') as csvfile:
+			# 	keys = ['caption', 'likes', 'user_id', 'at_signs', 'hashtags', 'pic_url', 'date']
+			# 	w = csv.DictWriter(csvfile, fieldnames=keys)
+			# 	w.writeheader()
+			# 	#w = csv.writer(csvfile, delimiter='\t')
+			# 	#w.writerow(keys)
 
-			with open('data/raw.csv', 'wb') as csvfile:
-				keys = ['caption', 'likes', 'user_id', 'at_signs', 'hashtags', 'pic_url', 'date']
-				w = csv.DictWriter(csvfile, fieldnames=keys)
-				w.writeheader()
-				#w = csv.writer(csvfile, delimiter='\t')
-				#w.writerow(keys)
-
+			# write to local JSON
+			with open('data/raw.json', 'w') as json_file:
 				print('Begin Instagram mining...')
 				while end_cursor is not None:
 					# URL build based on confirmed query id of a post
@@ -236,13 +237,19 @@ class InstagramExploreSearch:
 						posts.append(extracted_post)
 
 						## Write post data to local csv
-						w.writerow(extracted_post.to_dict())
+						# w.writerow(extracted_post.to_dict())
+
+						## Write post data to local JSON
+						#json_post = json.loads(extracted_post.to_dict())
+						#json.dump(extracted_post.to_dict(), json_file)
+						json_file.write("{}\n".format(json.dumps(data)))
 						
 						# Hard-coded loop cut off
 						print("Loop: " + str(i))
 						i += 1
 						if (i > 20000):
 							end_cursor = None
+							# quit at 16210 before
 							#return posts
 				
 				# Save posts to MongoDB	
