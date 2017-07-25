@@ -10,165 +10,25 @@ import sys
 import requests
 import json
 import re
+import csv
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
 
-# Post Model
-class InstagramPost:
-	def __init__(self, caption, likes, user_id, pic_url):
-		self.caption = caption
-		self.likes = likes
-		self.user_id = user_id
-		self.at_signs = self.parse_at_signs(caption)
-		self.hashtags = self.parse_hashtags(caption)
-		self.pic_url = pic_url
+class DBHandler():
+	def __init__(self):
+		self.client = MongoClient()
+		# Attempt to connect to MongoDB
+		try:
+			# The ismaster command does not require auth
+			self.client.admin.command('ismaster')
+		except ConnectionFailure:
+			print("Server not available. Exiting...")
+			sys.exit(1)
 
-	def get_caption(self):
-		return self.caption
-
-	def get_likes(self):
-		return self.likes
-
-	def get_user_id(self):
-		return self.user_id
-
-	def get_at_signs(self):
-		return self.at_signs
-
-	def get_pic_url(self):
-		return self.pic_url
-
-	# Returns list of associated at sign '@' in a string
-	# OPTIMIZE: remove double mentions
-	def parse_at_signs(self, string):
-		results = []
-		# Matches anything after an at sign '@'
-		# @		anything that begins with @
-		# \w 	matches any unicode character at least one time
-		at_compiler = re.compile('@[\w.]+')
-		results = at_compiler.findall(string)
-		return results
-
-	# Returns list of associated hashtags '#' in a string
-	# Can't have spaces or special characters
-	def parse_hashtags(self, string):
-		results = []
-		# Matches anything after a hashtag '#'
-		# '#'	anything that begins with #
-		# \w 	matches any unicode character at least one tim
-		hashtag_compiler = re.compile('#[\w.]+')
-		results = hashtag_compiler.findall(string)
-		return results
-
-	def to_dict(self):
-		return {
-			'caption': self.caption,
-			'likes': self.likes,
-			'user_id': self.user_id,
-			'at_signs': self.at_signs,
-			'pic_url': self.pic_url
-		}
-
-class InstagramExploreSearch:
-	'''
-	Class that mines the instagram explore page with a given hashtag.
-	'''
-	
-	def __init__(self, hashtag):
-		self.hashtag = hashtag
-		self.root_url = 'https://www.instagram.com'
-		self.all_posts = []
-
-	# Returns list of Instagram posts given hashtag search params
-	def extract_posts(self):
-		'''
-		Extracts Instagram posts with the given hashtag
-		:param tag: Hashtag to extract
-		'''
-		url_search = self.root_url + '/explore/tags/%s/' % self.hashtag
-		page = requests.get(url_search).text
-		soup = BeautifulSoup(page, 'html.parser')
-		# print(soup.prettify())
-		potential_query_ids = self.get_query_ids(soup)
-
-		# Find post data
-		for script_tag in soup.find_all('script'):
-			if script_tag.text.startswith('window._sharedData ='):
-				# Clean data for JSON loading
-				json_data = script_tag.text.replace('window._sharedData = ', '')
-				json_data = re.sub(';$', '', json_data)		# replace last ';'
-				json_data = json.loads(json_data)
-				break
-
-		#print json.dumps(json_data, indent=4)
-		posts = []
-
-		# Check if next page is available
-		media = json_data['entry_data']['TagPage'][0]['tag']['media']
-		if (media['page_info']['has_next_page'] == True):
-			# Figure out valid queryID
-			# Inspired by https://github.com/tomkdickinson/Instagram-Search-API-Python/blob/master/instagram_search.py
-			end_cursor = media['page_info']['end_cursor']	# use to query next page
-			success = False
-
-			# call go to new page
-			# test query ids from response page for correct one
-			# each id is its own image??
-			for potential_query_id in potential_query_ids:
-				# URL build based on a potential query id of a post
-				query_url = self.root_url + "/graphql/query/?query_id=%s&tag_name=%s&first=10&after=%s" % (
-					potential_query_id, self.hashtag, end_cursor)
-				
-				# Chekf if query id is valid
-				try:
-					query_data = requests.get(query_url).json()
-					if 'hashtag' not in query_data['data']:
-						# Empty response?
-						continue
-					query_id = potential_query_id
-					success = True
-					break
-
-				except ValueError as ve:
-					# no valid JSON returned, continue in loop
-					pass
-
-			# Exit if no valid queries
-			if not success:
-				log.error("Extracted query ids were not valid")
-				sys.exit(1)
-			
-			i = 0
-			while end_cursor is not None:
-				# URL build based on confirmed query id of a post
-				query_url = self.root_url + "/graphql/query/?query_id=%s&tag_name=%s&first=10&after=%s" % (
-					query_id, self.hashtag, end_cursor)
-				query_data = json.loads(requests.get(query_url).text)
-				end_cursor = query_data['data']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
-
-				# Collect posts after 'Load More' button
-				for node in query_data['data']['hashtag']['edge_hashtag_to_media']['edges']:
-					posts.append(self.extract_recent_query_post(node['node']))
-					
-					# Hard-coded loop cut off
-					print("Loop: " + str(i))
-					i += 1
-					if (i > 10):
-						end_cursor = None
-						#return posts
-					
-				insert_object = self.save_posts(posts)
-
-				self.get_posts(insert_object)
-
-		# Determine what posts to return
-		#posts = self.get_recent_posts(json_data)
-		return []
-
+	# Save posts
 	def get_posts(self, insert_object):
-		# Connet to database
-		client = MongoClient()
-		db = client['posts']
+		db = self.client['posts']
 
 		# Return all documents in latst_posts collection
 		cursor = db.latest_posts.find()
@@ -207,10 +67,192 @@ class InstagramExploreSearch:
 		# result is an InsertOneResult object
 		insert_object = db.latest_posts.insert_one(posts_dict)
 		# get unique id to insert object
-		# WHAT IS THE DIFFERENCE BETWEEN INSERONERESULT AND DOC _ID??
+		# WHAT IS THE DIFFERENCE BETWEEN INSERTONERESULT AND DOC _ID??
 		print("Unique id:")
 		print(insert_object.inserted_id)
 		return insert_object
+
+
+# Post Model
+class InstagramPost:
+	def __init__(self, caption, likes, user_id, pic_url, date):
+		self.caption = caption
+		self.likes = likes
+		self.user_id = user_id
+		self.at_signs = self.parse_at_signs(caption)
+		self.hashtags = self.parse_hashtags(caption)
+		self.pic_url = pic_url
+		self.date = date
+
+	def get_caption(self):
+		return self.caption
+
+	def get_likes(self):
+		return self.likes
+
+	def get_user_id(self):
+		return self.user_id
+
+	def get_at_signs(self):
+		return self.at_signs
+
+	def get_pic_url(self):
+		return self.pic_url
+
+	def get_hashtags(self):
+		return self.hashtags
+
+	# Returns list of associated at sign '@' in a string
+	# OPTIMIZE: remove double mentions
+	def parse_at_signs(self, string):
+		results = []
+		# Matches anything after an at sign '@'
+		# @		anything that begins with @
+		# \w 	matches any unicode character at least one time
+		at_compiler = re.compile('@[\w.]+')
+		results = at_compiler.findall(string)
+		return results
+
+	# Returns list of associated hashtags '#' in a string
+	# Can't have spaces or special characters
+	def parse_hashtags(self, string):
+		results = []
+		# Matches anything after a hashtag '#'
+		# '#'	anything that begins with #
+		# \w 	matches any unicode character at least one tim
+		hashtag_compiler = re.compile('#[\w.]+')
+		results = hashtag_compiler.findall(string)
+		return results
+
+	def to_dict(self):
+		return {
+			'caption': self.caption,
+			'likes': self.likes,
+			'user_id': self.user_id,
+			'at_signs': self.at_signs,
+			'pic_url': self.pic_url,
+			'hashtags' : self.hashtags,
+			'date': self.date
+		}
+
+class InstagramExploreSearch:
+	'''
+	Class that mines the instagram explore page with a given hashtag.
+	'''
+	
+	def __init__(self, hashtag):
+		self.hashtag = hashtag
+		self.root_url = 'https://www.instagram.com'
+		self.all_mined_posts = []
+
+	# Returns list of Instagram posts given hashtag search params
+	def extract_posts(self):
+		'''
+		Extracts Instagram posts with the given hashtag
+		:param tag: Hashtag to extract
+		'''
+		url_search = self.root_url + '/explore/tags/%s/' % self.hashtag
+		page = requests.get(url_search).text
+		soup = BeautifulSoup(page, 'html.parser')
+		# print(soup.prettify())
+		potential_query_ids = self.get_query_ids(soup)
+
+		# Find post data
+		for script_tag in soup.find_all('script'):
+			if script_tag.text.startswith('window._sharedData ='):
+				# Clean data for JSON loading
+				json_data = script_tag.text.replace('window._sharedData = ', '')
+				json_data = re.sub(';$', '', json_data)		# replace last ';'
+				json_data = json.loads(json_data)
+				break
+
+		# TEST: print recent JSON data
+		# print json.dumps(json_data, indent=4)
+		posts = []
+
+		# Check if next page is available
+		print('Checking if next page is available...')
+		media = json_data['entry_data']['TagPage'][0]['tag']['media']
+		if (media['page_info']['has_next_page'] == True):
+			print('Page available. Extracting query IDs...')
+			# Figure out valid queryID
+			# Inspired by https://github.com/tomkdickinson/Instagram-Search-API-Python/blob/master/instagram_search.py
+			end_cursor = media['page_info']['end_cursor']	# use to query next page
+			success = False
+
+			# call go to new page
+			# test query ids from response page for correct one
+			# each id is its own image??
+			for potential_query_id in potential_query_ids:
+				# URL build based on a potential query id of a post
+				query_url = self.root_url + "/graphql/query/?query_id=%s&tag_name=%s&first=10&after=%s" % (
+					potential_query_id, self.hashtag, end_cursor)
+				
+				# Check if query id is valid
+				try:
+					query_data = requests.get(query_url).json()
+					if 'hashtag' not in query_data['data']:
+						# Empty response?
+						continue
+					query_id = potential_query_id
+					success = True
+					break
+
+				except ValueError as ve:
+					# no valid JSON returned, continue in loop
+					pass
+
+			# Exit if no valid queries
+			if not success:
+				log.error("Extracted query ids were not valid")
+				sys.exit(1)
+			print("Successfully extracted query ids.")
+			
+			i = 0
+
+			# write to local csv
+
+			with open('data/raw.csv', 'wb') as csvfile:
+				keys = ['caption', 'likes', 'user_id', 'at_signs', 'hashtags', 'pic_url', 'date']
+				w = csv.DictWriter(csvfile, fieldnames=keys)
+				w.writeheader()
+				#w = csv.writer(csvfile, delimiter='\t')
+				#w.writerow(keys)
+
+				print('Begin Instagram mining...')
+				while end_cursor is not None:
+					# URL build based on confirmed query id of a post
+					query_url = self.root_url + "/graphql/query/?query_id=%s&tag_name=%s&first=10&after=%s" % (
+						query_id, self.hashtag, end_cursor)
+					query_data = json.loads(requests.get(query_url).text)
+					end_cursor = query_data['data']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
+
+					# TEST: print recent queried JSON data
+					# print json.dumps(query_data, indent=4)
+
+					# Collect posts after 'Load More' button
+					for node in query_data['data']['hashtag']['edge_hashtag_to_media']['edges']:
+						extracted_post = self.extract_recent_query_post(node['node'])
+						posts.append(extracted_post)
+
+						## Write post data to local csv
+						w.writerow(extracted_post.to_dict())
+						
+						# Hard-coded loop cut off
+						print("Loop: " + str(i))
+						i += 1
+						if (i > 20000):
+							end_cursor = None
+							#return posts
+				
+				# Save posts to MongoDB	
+				# insert_object = self.db.save_posts(posts)
+
+				# self.db.get_posts(insert_object)
+
+		# Determine what posts to return
+		#posts = self.extract_recent_posts(json_data)
+		return []
 
 	# Collect recent posts from initial root explore page
 	# param: node 	JSON umbrella key for recent post data
@@ -218,12 +260,13 @@ class InstagramExploreSearch:
 		user_id = int(node['owner']['id'])
 		likes = int(node['likes']['count'])
 		pic_url = node['display_src']
+		date = node['date']
 		# If no caption present, then caption is an empty string
 		if 'caption' in node:
 			caption = node['caption']
 		else:
 			caption = ""
-		post = InstagramPost(caption, likes, user_id, pic_url)
+		post = InstagramPost(caption, likes, user_id, pic_url, date)
 		
 		return post
 
@@ -232,19 +275,20 @@ class InstagramExploreSearch:
 	def extract_recent_query_post(self, node):
 		# print(json.dumps(node, indent=4))
 		
-		user_id = int(node['id'])
+		user_id = int(node['owner']['id'])
 		likes = int(node['edge_liked_by']['count'])
 		pic_url = node['display_url']
+		date = node['taken_at_timestamp']
 
 		# If no caption present, then caption is an empty string
 		caption = ""
 		if 'edge_media_to_caption' in node:
 			# !! COULD BE MORE CAPTION??
 			for section in node['edge_media_to_caption']['edges']:
-				caption += section['node']['text']
+				caption += section['node']['text'].encode('utf-8')
 			#caption = node['edge_media_to_caption']['edges'][0]['node']['text']
 
-		post = InstagramPost(caption, likes, user_id, pic_url)
+		post = InstagramPost(caption, likes, user_id, pic_url, date)
 		return post
 
 	# Collect top posts
@@ -259,8 +303,9 @@ class InstagramExploreSearch:
 
 		return posts
 
-	# Collect recent posts
-	def get_recent_posts(self, json_data):
+	# Collect recent posts from initial Instagram Explore page
+	# param: json_data 	JSON data taken from initial page
+	def extract_recent_posts(self, json_data):
 		media = json_data['entry_data']['TagPage'][0]['tag']['media']
 		posts = []
 
@@ -270,6 +315,10 @@ class InstagramExploreSearch:
 			# Optimize: add nodes such that they are in order, else sort
 
 			# print json.dumps(node, indent=4)
+
+			# write to local csv
+
+
 		return posts
 
 
