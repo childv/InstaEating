@@ -280,7 +280,7 @@ class InstagramExploreSearch:
 	# Collect recent posts beyond 'Load More' query button
 	# param: node 	JSON umbrella key for queried recent post data
 	def extract_recent_query_post(self, node):
-		# print(json.dumps(node, indent=4))
+		print(json.dumps(node, indent=4))
 		
 		user_id = int(node['owner']['id'])
 		likes = int(node['edge_liked_by']['count'])
