@@ -242,7 +242,7 @@ class InstagramExploreSearch:
 						## Write post data to local JSON
 						#json_post = json.loads(extracted_post.to_dict())
 						#json.dump(extracted_post.to_dict(), json_file)
-						json_file.write("{}\n".format(json.dumps(data)))
+						json_file.write("{}\n".format(json.dumps(extracted_post.to_dict())))
 						
 						# Hard-coded loop cut off
 						print("Loop: " + str(i))
