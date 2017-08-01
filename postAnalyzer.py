@@ -69,9 +69,17 @@ def tokenize_json(data_file):
 class pandasAnalyzer:
  	def __init__(self):
  		pass
+
+ 	def generate_mass_series(self):
+ 		# Iterate through JSON data
+		with open(data_file, "r") as json_file:
+			for line in json_file:
+				post_json = json.loads(line)
+
+
+
  	# Question: When a post has one variable above the mean, is the other variable above the mean too? (or vice versa)
- 	# returns: 	number of posts that have number of likes and hashtags above the mean,
- 	#			number of posts that have number of likes and hashtags in different direction
+ 	# returns: 	number of posts with both vars above mean, number of posts with one var below and one above
  	def series_test(self, var1, var2):
  		var1_values = []
  		var2_values = []
@@ -101,11 +109,37 @@ class pandasAnalyzer:
 
 		return (num_same_dir, num_different_dir)
 
+	# Find max of index
+	# Uses pandas index specification feature
+	def get_value_of_max(self, max, value):
+		max_lst = []
+		value_lst = []
+
+		# Iterate through JSON data
+		with open(data_file, "r") as json_file:
+			for line in json_file:
+				post_json = json.loads(line)
+				max_lst.append(post_json[max])
+				value_lst.append(post_json[value])
+
+		# convert lists into a pandas series
+		max_values_lst = pd.Series(value_lst, index=max_lst)
+
+		max_index = max_values_lst.idxmax()
+		max_value = max_values_lst.loc[max_index]
+
+		print("For post " + max + " and " + value + ":")
+		print("Post " + max + ", " + str(max_index) + ", has the most " + value + ": " + str(max_value))
+
+		return(max_index, max_value)	
+
+
 if __name__ == '__main__':
 	data_file = "data/raw.json"
 
 	analyzer = pandasAnalyzer()
 	num1, num2 = analyzer.series_test('likes', 'hashtags')
+	analyzer.get_value_of_max('id', 'likes')
 
 
 	# Process English captions

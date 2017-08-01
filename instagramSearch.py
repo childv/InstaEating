@@ -75,7 +75,7 @@ class DBHandler():
 
 # Post Model
 class InstagramPost:
-	def __init__(self, caption, likes, user_id, pic_url, date):
+	def __init__(self, caption, likes, user_id, pic_url, date, id, shortcode, is_video):
 		self.caption = caption
 		self.likes = likes
 		self.user_id = user_id
@@ -83,6 +83,9 @@ class InstagramPost:
 		self.hashtags = self.parse_hashtags(caption)
 		self.pic_url = pic_url
 		self.date = date
+		self.id = id
+		self.shortcode = shortcode
+		self.is_video = is_video
 
 	def get_caption(self):
 		return self.caption
@@ -101,6 +104,15 @@ class InstagramPost:
 
 	def get_hashtags(self):
 		return self.hashtags
+
+	def get_id(self):
+		return self.id
+
+	def get_shortcode(self):
+		return self.shortcode
+
+	def is_video(self):
+		return self.is_video
 
 	# Returns list of associated at sign '@' in a string
 	# OPTIMIZE: remove double mentions
@@ -132,7 +144,10 @@ class InstagramPost:
 			'at_signs': self.at_signs,
 			'pic_url': self.pic_url,
 			'hashtags' : self.hashtags,
-			'date': self.date
+			'date': self.date,
+			'id': self.id,
+			'shortcode': self.shortcode,
+			'is_video': self.is_video
 		}
 
 class InstagramExploreSearch:
@@ -223,7 +238,8 @@ class InstagramExploreSearch:
 				print('Begin Instagram mining...')
 				while end_cursor is not None:
 					# URL build based on confirmed query id of a post
-					query_url = self.root_url + "/graphql/query/?query_id=%s&tag_name=%s&first=10&after=%s" % (
+					# Note: Can change param of 'first=' to >1(limit unknown)
+					query_url = self.root_url + "/graphql/query/?query_id=%s&tag_name=%s&first=20&after=%s" % (
 						query_id, self.hashtag, end_cursor)
 					query_data = json.loads(requests.get(query_url).text)
 					end_cursor = query_data['data']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
@@ -234,7 +250,7 @@ class InstagramExploreSearch:
 					# Collect posts after 'Load More' button
 					for node in query_data['data']['hashtag']['edge_hashtag_to_media']['edges']:
 						extracted_post = self.extract_recent_query_post(node['node'])
-						posts.append(extracted_post)
+						#posts.append(extracted_post)
 
 						## Write post data to local csv
 						# w.writerow(extracted_post.to_dict())
@@ -242,7 +258,7 @@ class InstagramExploreSearch:
 						## Write post data to local JSON
 						#json_post = json.loads(extracted_post.to_dict())
 						#json.dump(extracted_post.to_dict(), json_file)
-						json_file.write("{}\n".format(json.dumps(data)))
+						json_file.write("{}\n".format(json.dumps(extracted_post.to_dict())))
 						
 						# Hard-coded loop cut off
 						print("Loop: " + str(i))
@@ -266,26 +282,33 @@ class InstagramExploreSearch:
 	def extract_recent_post(self, node):
 		user_id = int(node['owner']['id'])
 		likes = int(node['likes']['count'])
+		id = int(node['id'])
+
 		pic_url = node['display_src']
 		date = node['date']
+		shortcode = node['code']
+		is_video = node['is_video'] # CONVERT TO BOOLEAN, either true/false
+
 		# If no caption present, then caption is an empty string
 		if 'caption' in node:
 			caption = node['caption']
 		else:
 			caption = ""
-		post = InstagramPost(caption, likes, user_id, pic_url, date)
-		
+
+		post = InstagramPost(caption, likes, user_id, pic_url, date, id, shortcode, is_video)
 		return post
 
 	# Collect recent posts beyond 'Load More' query button
 	# param: node 	JSON umbrella key for queried recent post data
-	def extract_recent_query_post(self, node):
-		print(json.dumps(node, indent=4))
-		
+	def extract_recent_query_post(self, node):		
 		user_id = int(node['owner']['id'])
 		likes = int(node['edge_liked_by']['count'])
+		id = int(node['id'])
+
 		pic_url = node['display_url']
 		date = node['taken_at_timestamp']
+		shortcode = node['shortcode']
+		is_video = node['is_video'] # CONVERT TO BOOLEAN
 
 		# If no caption present, then caption is an empty string
 		caption = ""
@@ -295,7 +318,7 @@ class InstagramExploreSearch:
 				caption += section['node']['text'].encode('utf-8')
 			#caption = node['edge_media_to_caption']['edges'][0]['node']['text']
 
-		post = InstagramPost(caption, likes, user_id, pic_url, date)
+		post = InstagramPost(caption, likes, user_id, pic_url, date, id, shortcode, is_video)
 		return post
 
 	# Collect top posts
