@@ -149,11 +149,13 @@ def get_freq_words(data_file, freq):
 	return clean_caption
  
  # Class holder for all things pandas 
- class pandasAnalyzer():
+class pandasAnalyzer:
+ 	def __init__(self):
+ 		pass
  	# Question: When a post has likes above the mean, are the number of hashtags above the mean too? (or vice versa)
  	# returns: 	number of posts that have number of likes and hashtags above the mean,
  	#			number of posts that have number of likes and hashtags in different direction
- 	def series_test():
+ 	def series_test(self):
  		like_values = []
  		num_hashtags_values = []
 
@@ -176,6 +178,9 @@ def get_freq_words(data_file, freq):
 		# calulate different direction by taking the difference
 		num_different_direction = len(variable1) - num_same_direction
 
+		print("No. same: " + str(num_same_direction))
+		print("No. different: " + str(num_different_direction))
+
 		return (num_same_direction, num_different_direction)
 
 if __name__ == '__main__':
@@ -188,7 +193,8 @@ if __name__ == '__main__':
 	nlp = spacy.load('en') # preload
 	print("Preload successful.")
 
-	# analyzer = pandasAnalyzer()
+	analyzer = pandasAnalyzer()
+	analyser.series_test()
 
 
 	# Process English captions
@@ -198,7 +204,7 @@ if __name__ == '__main__':
 	#counter_ats = get_frequent_ats(data_file)
 	#print(counter_ats.most_common(5))
 
-	holder = get_freq_words(data_file, 5)
+	# holder = get_freq_words(data_file, 5)
 
 	try:
 		# Taken from: https://nicschrading.com/project/Intro-to-NLP-with-spaCy/
