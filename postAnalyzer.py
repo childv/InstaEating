@@ -148,40 +148,74 @@ def get_freq_words(data_file, freq):
 
 	return clean_caption
  
- # Class holder for all things pandas 
+
+# Class holder for all things pandas 
 class pandasAnalyzer:
  	def __init__(self):
  		pass
- 	# Question: When a post has likes above the mean, are the number of hashtags above the mean too? (or vice versa)
- 	# returns: 	number of posts that have number of likes and hashtags above the mean,
- 	#			number of posts that have number of likes and hashtags in different direction
- 	def series_test(self):
- 		like_values = []
- 		num_hashtags_values = []
+
+ 	def generate_mass_series(self):
+ 		# Iterate through JSON data
+		with open(data_file, "r") as json_file:
+			for line in json_file:
+				post_json = json.loads(line)
+
+
+ 	# Question: When a post has one variable above the mean, is the other variable above the mean too? (or vice versa)
+ 	# returns: 	number of posts with both vars above mean, number of posts with one var below and one above
+ 	def series_test(self, var1, var2):
+ 		var1_values = []
+ 		var2_values = []
 
  		# Iterate through JSON data
 		with open(data_file, "r") as json_file:
 			for line in json_file:
 				post_json = json.loads(line)
-				like_values.append(post_json['likes'])
-				num_hashtags_values.append(len(post_json['hashtags']))
+				var1_values.append(post_json[var1])
+				var2_values.append(len(post_json[var2]))
 
-		variable1 = pd.Series(like_values) # convert list of likes into pandas series
-		variable2 = pd.Series(num_hashtags_values) # convert list of no. of hashtags into pandas series
+		# convert list in pandas series
+		var1_series = pd.Series(var1_values)
+		var2_series = pd.Series(var2_values)
 
-		both_above = (variable1 > variable1.mean()) & (variable2 > variable2.mean())
-		both_below = (variable1 < variable1.mean()) & (variable2 < variable2.mean())
+		both_above = (var1_series > var1_series.mean()) & (var2_series > var2_series.mean())
+		both_below = (var1_series < var1_series.mean()) & (var2_series < var2_series.mean())
 
-		is_same_direction = both_above | both_below
-		num_same_direction = is_same_direction.sum()
+		is_same_dir = both_above | both_below
+		num_same_dir = is_same_dir.sum()
 
 		# calulate different direction by taking the difference
-		num_different_direction = len(variable1) - num_same_direction
+		num_different_dir = len(var1_series) - num_same_dir
 
-		print("No. same: " + str(num_same_direction))
-		print("No. different: " + str(num_different_direction))
+		print("For post " + var1 + " and " + var2 + ":")	
+		print("Same direction: " + str(num_same_dir) + " --- Diff direction: " + str(num_different_dir))
 
-		return (num_same_direction, num_different_direction)
+		return (num_same_dir, num_different_dir)
+
+	# Find max of index
+	# Uses pandas index specification feature
+	def get_value_of_max(self, max, value):
+		max_lst = []
+		value_lst = []
+
+		# Iterate through JSON data
+		with open(data_file, "r") as json_file:
+			for line in json_file:
+				post_json = json.loads(line)
+				max_lst.append(post_json[max])
+				value_lst.append(post_json[value])
+
+		# convert lists into a pandas series
+		max_values_lst = pd.Series(value_lst, index=max_lst)
+
+		max_index = max_values_lst.idxmax()
+		max_value = max_values_lst.loc[max_index]
+
+		print("For post " + max + " and " + value + ":")
+		print("Post " + max + ", " + str(max_index) + ", has the most " + value + ": " + str(max_value))
+
+		return(max_index, max_value)	
+
 
 if __name__ == '__main__':
 	common_tokens = []
@@ -194,7 +228,8 @@ if __name__ == '__main__':
 	print("Preload successful.")
 
 	analyzer = pandasAnalyzer()
-	analyser.series_test()
+	num1, num2 = analyzer.series_test('likes', 'hashtags')
+	analyzer.get_value_of_max('id', 'likes')
 
 
 	# Process English captions
