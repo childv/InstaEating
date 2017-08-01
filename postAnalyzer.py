@@ -65,40 +65,47 @@ def tokenize_json(data_file):
 
 	return doc_caption
  
- # Class holder for all things pandas 
- class pandasAnalyzer():
- 	# Question: When a post has likes above the mean, are the number of hashtags above the mean too? (or vice versa)
+# Class holder for all things pandas 
+class pandasAnalyzer:
+ 	def __init__(self):
+ 		pass
+ 	# Question: When a post has one variable above the mean, is the other variable above the mean too? (or vice versa)
  	# returns: 	number of posts that have number of likes and hashtags above the mean,
  	#			number of posts that have number of likes and hashtags in different direction
- 	def series_test():
- 		like_values = []
- 		num_hashtags_values = []
+ 	def series_test(self, var1, var2):
+ 		var1_values = []
+ 		var2_values = []
 
  		# Iterate through JSON data
 		with open(data_file, "r") as json_file:
 			for line in json_file:
 				post_json = json.loads(line)
-				like_values.append(post_json['likes'])
-				num_hashtags_values.append(len(post_json['hashtags']))
+				var1_values.append(post_json[var1])
+				var2_values.append(len(post_json[var2]))
 
-		variable1 = pd.Series(like_values) # convert list of likes into pandas series
-		variable2 = pd.Series(num_hashtags_values) # convert list of no. of hashtags into pandas series
+		# convert list in pandas series
+		var1_series = pd.Series(var1_values)
+		var2_series = pd.Series(var2_values)
 
-		both_above = (variable1 > variable1.mean()) & (variable2 > variable2.mean())
-		both_below = (variable1 < variable1.mean()) & (variable2 < variable2.mean())
+		both_above = (var1_series > var1_series.mean()) & (var2_series > var2_series.mean())
+		both_below = (var1_series < var1_series.mean()) & (var2_series < var2_series.mean())
 
-		is_same_direction = both_above | both_below
-		num_same_direction = is_same_direction.sum()
+		is_same_dir = both_above | both_below
+		num_same_dir = is_same_dir.sum()
 
 		# calulate different direction by taking the difference
-		num_different_direction = len(variable1) - num_same_direction
+		num_different_dir = len(var1_series) - num_same_dir
 
-		return (num_same_direction, num_different_direction)
+		print("For post " + var1 + " and " + var2 + ":")	
+		print("Same direction: " + str(num_same_dir) + " --- Diff direction: " + str(num_different_dir))
+
+		return (num_same_dir, num_different_dir)
 
 if __name__ == '__main__':
 	data_file = "data/raw.json"
 
 	analyzer = pandasAnalyzer()
+	num1, num2 = analyzer.series_test('likes', 'hashtags')
 
 
 	# Process English captions
