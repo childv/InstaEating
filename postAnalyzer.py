@@ -15,11 +15,10 @@ global common_tokens # composed of hashtags
 
 # Removes @ and # tags from string
 # Inspired by https://www.analyticsvidhya.com/blog/2017/04/natural-language-processing-made-easy-using-spacy-%E2%80%8Bin-python/
-# param: dirty_str 	string to be cleaned
+# param: untagged 	string to remove hashtags and at signs from
 def remove_tags(tagged_str):
-	#print(dirty_str)
-	cleaned_str = re.sub('(@[\w.]+)|(#[\w.]*)', '', dirty_str)
-	return cleaned_str
+	untagged_str = re.sub('(@[\w.]+)|(#[\w.]*)', '', tagged_str)
+	return untagged
 
 # Checks if token is a stop word, tag, or other form of noise
 # param: token 		token from unicode encoded spacy document
