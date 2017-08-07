@@ -249,19 +249,20 @@ class InstagramExploreSearch:
 
 					# Collect posts after 'Load More' button
 					for node in query_data['data']['hashtag']['edge_hashtag_to_media']['edges']:
+						# Print line progress
+						sys.stdout.write("Reading line: %d \r" % i)
+						sys.stdout.flush()
+
 						extracted_post = self.extract_recent_query_post(node['node'])
 						#posts.append(extracted_post)
 
 						## Write post data to local csv
 						# w.writerow(extracted_post.to_dict())
 
-						## Write post data to local JSON
-						#json_post = json.loads(extracted_post.to_dict())
-						#json.dump(extracted_post.to_dict(), json_file)
+						# Write post data to local JSON
 						json_file.write("{}\n".format(json.dumps(extracted_post.to_dict())))
-						
+
 						# Hard-coded loop cut off
-						print("Loop: " + str(i))
 						i += 1
 						if (i > 20000):
 							end_cursor = None

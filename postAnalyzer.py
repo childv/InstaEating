@@ -150,15 +150,10 @@ def get_freq_words(data_file, freq):
 
 # Class holder for all things pandas 
 class pandasAnalyzer:
- 	def __init__(self):
- 		pass
-
- 	def generate_mass_series(self):
- 		# Iterate through JSON data
-		with open(data_file, "r") as json_file:
-			for line in json_file:
-				post_json = json.loads(line)
-
+ 	def __init__(self, json_file):
+ 		# Initialize series from json, set post id as index
+ 		self.raw_df = pd.read_json(json_file, lines=True)
+ 		self.raw_df = self.raw_df.set_index('id')
 
  	# Question: When a post has one variable above the mean, is the other variable above the mean too? (or vice versa)
  	# returns: 	number of posts with both vars above mean, number of posts with one var below and one above
@@ -193,27 +188,17 @@ class pandasAnalyzer:
 
 	# Find max of index
 	# Uses pandas index specification feature
-	def get_value_of_max(self, max, value):
-		max_lst = []
-		value_lst = []
+	def get_max_value(self, value):
+		# Get max value and its index
+		max_index = self.raw_df[value].idxmax()
+		max_value = self.raw_df.ix[max_index, value]
+		
+		print("For the post with the maximum " + value + ":")
+		print("Post id " + str(max_index) + ", has the most " + value + ": " + str(max_value))
 
-		# Iterate through JSON data
-		with open(data_file, "r") as json_file:
-			for line in json_file:
-				post_json = json.loads(line)
-				max_lst.append(post_json[max])
-				value_lst.append(post_json[value])
+		return(max_index, max_value)
 
-		# convert lists into a pandas series
-		max_values_lst = pd.Series(value_lst, index=max_lst)
-
-		max_index = max_values_lst.idxmax()
-		max_value = max_values_lst.loc[max_index]
-
-		print("For post " + max + " and " + value + ":")
-		print("Post " + max + ", " + str(max_index) + ", has the most " + value + ": " + str(max_value))
-
-		return(max_index, max_value)	
+	# Question:	
 
 
 if __name__ == '__main__':
@@ -222,13 +207,13 @@ if __name__ == '__main__':
 
 
 	# Process English captions
-	print("Preloading NLP...")
-	nlp = spacy.load('en') # preload
-	print("Preload successful.")
+	# print("Preloading NLP...")
+	# nlp = spacy.load('en') # preload
+	# print("Preload successful.")
 
-	analyzer = pandasAnalyzer()
-	num1, num2 = analyzer.series_test('likes', 'hashtags')
-	analyzer.get_value_of_max('id', 'likes')
+	analyzer = pandasAnalyzer(data_file)
+	#num1, num2 = analyzer.series_test('likes', 'hashtags')
+	analyzer.get_max_value('likes')
 
 
 	# Process English captions
